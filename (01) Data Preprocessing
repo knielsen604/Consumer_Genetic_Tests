@@ -1,0 +1,60 @@
+---
+title: "01 Data Preprocessing (Gene Data)"
+author: "Kimberly Nielsen"
+date: "12/6/2019"
+output: html_document
+---
+
+```{r echo=FALSE, warning=FALSE} #Load required packages
+library(varhandle)
+library(stringr)
+library(dplyr)
+library(tidyverse)
+library(reshape2)
+library(factoextra)
+library(cluster)
+library(ggcorrplot)
+library(olsrr)
+```
+```{r warning=FALSE} #Upload .txt files containing raw genetic data
+Gene_Names <- list(Kim_Raw=read.delim(file.choose()), 
+                   Dad_Raw=read.delim(file.choose()), 
+                   Mom_Raw=read.delim(file.choose()))
+```
+```{r} ## Modify and arrange genetic data into a dataframe
+#Start by universally cleaning the data.
+Choose_CLEAN <- function(type){
+  type <- tail(type, -22) #Gets rid of "23andMe" stuff.
+  type <- as.data.frame(sapply(type, function(z) gsub("X", "23", gsub("Y", "24", gsub("MT", "25", z))))) #This will aid in the proceeding algorithm.
+  type <- data.frame(matrix(unlist(type), ncol=4, byrow=T)) #Create 4-column matrix from a 1-column DF.
+  type <- cbind.data.frame(type[,1:3], str_split_fixed(type[,4], "" , 2)) #Split the letters from "GG" -> "G","G".
+}
+Gene_Names <- lapply(c(1:3), function(i) Choose_CLEAN(Gene_Names[[i]]))
+
+#Just Kim & Dads' dfs (which are equal in size and smaller than Mom's):
+CXXX_Combined <- inner_join(Gene_Names[[1]], Gene_Names[[2]], by=c("X1","X2","X3"))
+colnames(CXXX_Combined)[which(colnames(CXXX_Combined) %in% c("1.x","2.x","1.y","2.y") )] <- c("Kim_1","Kim_2","Dad_1","Dad_2")
+CXXX_Combined <- unfactor(CXXX_Combined)
+
+#Mom, Dad, and Kim overlap:
+MOOP <- Gene_Names[[3]] %>% filter(., X1 %in% CXXX_Combined$X1) %>% unfactor(.) # Mom intersect Dad/Kim
+Combined_ALL <- CXXX_Combined %>% filter(., X1 %in% MOOP$X1) %>% 
+                cbind.data.frame(., "Mom_1"=MOOP[,4], "Mom_2"=MOOP[,5]) %>% unfactor(.)
+```
+```{r} ## Exploring the structure of sex and mitochondrial DNA.
+COPY_ALL <- as.data.frame(sapply(CXXX_Combined, function(z) as.factor(z)))
+
+sumMom(filter(COPY_ALL[,4:7], X2=="23")) #X-Chromosome.
+#Insights: ALL "Ds" and "Is" for Dad are in Dad_1. Both are found in Kim_1/2. Both Dad_1/2 contain normal base pairs. Also, Dad appears to contain a full set of X-chromosomes on some base pairs.
+sumMom(filter(COPY_ALL, X2=="24")) #Y-Chromosome.
+#Thankfully, Kim_1/2 do NOT contain Y-chromosome data. Neither does Dad_2. Only look at Dad_1 for this part!
+sumMom(filter(COPY_ALL, X2=="25")) #Mitochondrial DNA.
+#Both Kim_2 and Dad_2 ONLY contain "-" or "" for mitochondrial DNA.
+```
+```{r} ## Create a table to summarize information about data errors
+
+
+
+
+
+
