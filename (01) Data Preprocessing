@@ -24,22 +24,23 @@ Gene_Names <- list(Kim_Raw=read.delim(file.choose()),
 ```{r} ## Modify and arrange genetic data into a dataframe
 #Start by universally cleaning the data.
 Choose_CLEAN <- function(type){
-  type <- tail(type, -22) #Gets rid of "23andMe" stuff.
-  type <- as.data.frame(sapply(type, function(z) gsub("X", "23", gsub("Y", "24", gsub("MT", "25", z))))) #This will aid in the proceeding algorithm.
-  type <- data.frame(matrix(unlist(type), ncol=4, byrow=T)) #Create 4-column matrix from a 1-column DF.
-  type <- cbind.data.frame(type[,1:3], str_split_fixed(type[,4], "" , 2)) #Split the letters from "GG" -> "G","G".
-}
+  type <- tail(type, -22) %>% #Gets rid of "23andMe" stuff.
+          as.data.frame(sapply(type, function(z) gsub("X", "23", gsub("Y", "24", gsub("MT", "25", z))))) %>% #This will aid in the proceeding algorithm.
+          data.frame(matrix(unlist(type), ncol=4, byrow=T)) %>% #Create 4-column matrix from a 1-column DF.
+          cbind.data.frame(type[,1:3], str_split_fixed(type[,4], "" , 2))} #Split the letters from "GG" -> "G","G".
+
 Gene_Names <- lapply(c(1:3), function(i) Choose_CLEAN(Gene_Names[[i]]))
 
 #Just Kim & Dads' dfs (which are equal in size and smaller than Mom's):
-CXXX_Combined <- inner_join(Gene_Names[[1]], Gene_Names[[2]], by=c("X1","X2","X3"))
-colnames(CXXX_Combined)[which(colnames(CXXX_Combined) %in% c("1.x","2.x","1.y","2.y") )] <- c("Kim_1","Kim_2","Dad_1","Dad_2")
-CXXX_Combined <- unfactor(CXXX_Combined)
+Just_DAD <- inner_join(Gene_Names[[1]], Gene_Names[[2]], by=c("X1","X2","X3"))
+colnames(Just_DAD)[which(colnames(Just_DAD) %in% c("1.x","2.x","1.y","2.y") )] <- c("Kim_1","Kim_2","parent1","parent2")
+Just_DAD <- unfactor(Just_DAD)
 
-#Mom, Dad, and Kim overlap:
+#Kim & Mom overlap:
 MOOP <- Gene_Names[[3]] %>% filter(., X1 %in% CXXX_Combined$X1) %>% unfactor(.) # Mom intersect Dad/Kim
-Combined_ALL <- CXXX_Combined %>% filter(., X1 %in% MOOP$X1) %>% 
-                cbind.data.frame(., "Mom_1"=MOOP[,4], "Mom_2"=MOOP[,5]) %>% unfactor(.)
+Just_MOM <- Gene_Names[[1]] %>% filter(., X1 %in% MOOP$X1) %>% 
+            cbind.data.frame(., "parent1"=MOOP[,4], "parent2"=MOOP[,5]) %>% 
+            unfactor(.)
 ```
 ```{r} ## Exploring the structure of sex and mitochondrial DNA.
 COPY_ALL <- as.data.frame(sapply(CXXX_Combined, function(z) as.factor(z)))
@@ -52,8 +53,34 @@ sumMom(filter(COPY_ALL, X2=="25")) #Mitochondrial DNA.
 #Both Kim_2 and Dad_2 ONLY contain "-" or "" for mitochondrial DNA.
 ```
 ```{r} ## Create a table to summarize information about data errors
+#Algorithm #1: Autosomal Chromosomes ONLY. Other chromosome types will be revised.
+Present_Table <- as.data.frame(seq(1:22))
+#new <- Just_MOM
+new <- Just_DAD
+for(CHROM_NUMBER in 1:22){
+    Intact_CXX <- filter_at(new[new$X2==CHROM_NUMBER,], vars(Kim_1, Kim_2, parent1, parent2), all_vars(.=="A" | .== "G" | .=="T" | .=="C"))   #Find all completely INTACT rows (i.e., only containing the below combination).
+    Errors_CXX <- filter_at(new[new$X2==CHROM_NUMBER,], vars(Kim_1, Kim_2, parent1, parent2), any_vars(.!="A" & .!= "G" & .!="T" & .!="C"))   #Find all rows NOT containing a combination of "A","G","T","C". These rows contain errors.
+    
+    Present_Table$`Chromosome Length`[CHROM_NUMBER] <- nrow(new[new$X2==CHROM_NUMBER,])
+    Present_Table$`Total Errors`[CHROM_NUMBER] <- nrow(Errors_CXX) #The number of errors per chromosome.
 
+    #Using INTACT rows only, find errors/mutations in the data:
+    Present_Table$Mutations[CHROM_NUMBER] <- nrow(Intact_CXX[Intact_CXX$Kim_1 != Intact_CXX$parent1 & Intact_CXX$Kim_1 != Intact_CXX$parent2 & Intact_CXX$Kim_2 != Intact_CXX$parent1 & Intact_CXX$Kim_2 != Intact_CXX$parent2,]) #'Mutations' or errors.
 
+    #Using ERROR rows only, perform a number of calculations:
+    Present_Table$`Ds & Is`[CHROM_NUMBER] <- nrow(filter_at(Errors_CXX, vars(Kim_1,Kim_2,parent1,parent2), any_vars(.=="D" | .=="I"))) #Number of rows containing Ds or Is.
+    Present_Table$`Any Dashes`[CHROM_NUMBER] <- nrow(filter_at(Errors_CXX, vars(Kim_1,Kim_2,parent1,parent2), any_vars(.=="-"))) #Any rows containing "-"s.
+    Present_Table$`All Dashes`[CHROM_NUMBER] <- nrow(filter_at(Errors_CXX, vars(Kim_1,Kim_2,parent1,parent2), all_vars(.=="-"))) #Number of rows wherein ALL base pairs are "-".
+    Present_Table$All_Dashes_CORRECTED[CHROM_NUMBER] <- Present_Table$Any_Dashes - Present_Table$All_Dashes
+}
+
+#Present_MOM <- Present_Table
+Present_DAD <- Present_Table
+Present_Table <- NULL
+```
+```{r}
+
+```
 
 
 
