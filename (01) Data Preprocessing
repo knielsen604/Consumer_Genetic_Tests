@@ -59,6 +59,11 @@ Present_Table <- as.data.frame(seq(1:22))
 new <- Just_DAD
 for(CHROM_NUMBER in 1:22){
     Intact_CXX <- filter_at(new[new$X2==CHROM_NUMBER,], vars(Kim_1, Kim_2, parent1, parent2), all_vars(.=="A" | .== "G" | .=="T" | .=="C"))   #Find all completely INTACT rows (i.e., only containing the below combination).
+    
+    if(
+    XX_Unexpected <- Just_Dad[Just_Dad$X2=="23" & Just_Dad$parent2!="",] #Run through algorithm #1.
+    
+    
     Errors_CXX <- filter_at(new[new$X2==CHROM_NUMBER,], vars(Kim_1, Kim_2, parent1, parent2), any_vars(.!="A" & .!= "G" & .!="T" & .!="C"))   #Find all rows NOT containing a combination of "A","G","T","C". These rows contain errors.
     
     Present_Table$`Chromosome Length`[CHROM_NUMBER] <- nrow(new[new$X2==CHROM_NUMBER,])
@@ -78,7 +83,8 @@ for(CHROM_NUMBER in 1:22){
 Present_DAD <- Present_Table
 Present_Table <- NULL
 ```
-```{r}
+```{r} ## Fix X-chromosome comparison for Kim/Dad, given gender difference:
+
 
 ```
 
